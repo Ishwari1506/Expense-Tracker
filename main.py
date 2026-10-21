@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import math
+from datetime import date
 
 
 FILE_PATH = Path(__file__).parent / "expenses.json"
@@ -9,11 +10,13 @@ FILE_PATH = Path(__file__).parent / "expenses.json"
 class Expense:
     """Represents a single expense."""
 
-    def __init__(self, expense_id, description, amount, category):
+    def __init__(self, expense_id, description, amount, category,
+                 expense_date=None):
         self.id = expense_id
         self.description = description
         self.amount = amount
         self.category = category
+        self.date = expense_date or date.today().isoformat()
 
     def to_dict(self):
         """Convert the expense object into a dictionary."""
@@ -21,7 +24,8 @@ class Expense:
             "id": self.id,
             "description": self.description,
             "amount": self.amount,
-            "category": self.category
+            "category": self.category,
+            "date": self.date
         }
 
     @classmethod
@@ -31,7 +35,8 @@ class Expense:
             data["id"],
             data["description"],
             data["amount"],
-            data["category"]
+            data["category"],
+            data.get("date")
         )
 
 
@@ -185,6 +190,62 @@ def delete_expense(expenses):
     print(f"No expense found with ID {expense_id}.")
 
 
+def monthly_summary(expenses):
+    """Display and export a monthly summary by category."""
+    from datetime import datetime
+    from collections import defaultdict
+
+    month = input("Enter month (YYYY-MM, e.g., 2026-10): ").strip()
+
+    try:
+        datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        print("Invalid month format. Please use YYYY-MM.")
+        return
+
+    category_totals = defaultdict(float)
+
+    for expense in expenses:
+        try:
+            expense_date = datetime.strptime(expense.date, "%Y-%m-%d")
+        except (ValueError, TypeError):
+            continue
+
+        if expense_date.strftime("%Y-%m") == month:
+            category_totals[expense.category.casefold()] += expense.amount
+
+    if not category_totals:
+        print(f"No expenses found for {month}.")
+        return
+
+    lines = [
+        f"Monthly Expense Summary - {month}",
+        "=" * 40
+    ]
+
+    for category, total in sorted(category_totals.items()):
+        lines.append(f"{category.title():<20} {total:.2f}")
+
+    grand_total = sum(category_totals.values())
+    lines.extend([
+        "-" * 40,
+        f"{'Grand Total':<20} {grand_total:.2f}"
+    ])
+
+    summary_text = "\n".join(lines)
+
+    print("\n" + summary_text)
+
+    report_path = FILE_PATH.parent / f"monthly_summary_{month}.txt"
+
+    try:
+        report_path.write_text(summary_text + "\n", encoding="utf-8")
+        print(f"\nSummary exported to: {report_path.name}")
+    except OSError as error:
+        print(f"Could not export summary: {error}")
+
+
+
 def main():
     """Run the menu-driven expense tracker."""
     expenses = load_expenses()
@@ -198,9 +259,10 @@ def main():
         print("1. Add Expense")
         print("2. View Expenses")
         print("3. Delete Expense")
-        print("4. Exit")
+        print("4. Monthly Summary")
+        print("5. Exit")
 
-        choice = input("Enter your choice (1-4): ").strip()
+        choice = input("Enter your choice (1-5): ").strip()
 
         if choice == "1":
             add_expense(expenses)
@@ -209,10 +271,12 @@ def main():
         elif choice == "3":
             delete_expense(expenses)
         elif choice == "4":
+            monthly_summary(expenses)
+        elif choice == "5":
             print("Thank you for using Expense Tracker!")
             break
         else:
-            print("Invalid choice. Please enter a number from 1 to 4.")
+            print("Invalid choice. Please enter a number from 1 to 5.")
 
 
 if __name__ == "__main__":
