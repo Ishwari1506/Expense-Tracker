@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import math
 
 
 FILE_PATH = Path(__file__).parent / "expenses.json"
@@ -85,7 +86,7 @@ def add_expense(expenses):
     try:
         amount = float(input("Enter amount: "))
 
-        if not (amount > 0 and amount < float("inf")):
+        if not math.isfinite(amount) or amount <= 0:
             print("Amount must be a positive, finite number.")
             return
 
